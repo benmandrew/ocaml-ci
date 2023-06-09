@@ -124,6 +124,7 @@ let local_test ~solver repo () =
      Current_incr.const (result, None)
 
 let v ?ocluster ~app ~solver ~migrations () =
+  let
   let ocluster =
     Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster
   in
