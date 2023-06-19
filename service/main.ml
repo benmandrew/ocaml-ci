@@ -106,6 +106,20 @@ let run_capnp capnp_public_address capnp_listen_address =
           f "Wrote capability reference to %S" Conf.Capnp.cap_file);
       Lwt.return (vat, Some rpc_engine_resolver)
 
+let metrics =
+  object
+    inherit Current_web.Resource.t
+    val! can_get = `Monitor
+
+    method! private get _ctx =
+      Prometheus.CollectorRegistry.(collect default) >>= fun data ->
+      let body = Fmt.to_to_string Prometheus_app.TextFormat_0_0_4.output data in
+      let headers =
+        Cohttp.Header.init_with "Content-Type" "text/plain; version=0.0.4"
+      in
+      Cohttp_lwt_unix.Server.respond_string ~status:`OK ~headers ~body ()
+  end
+
 let main () config mode app capnp_public_address capnp_listen_address
     github_auth submission_uri solve_uri migrations :
     ('a, [ `Msg of string ]) result =
@@ -134,6 +148,7 @@ let main () config mode app capnp_public_address capnp_listen_address
        Github.webhook_route ~engine ~get_job_ids:Index.get_job_ids
          ~webhook_secret
        :: Github.login_route github_auth
+       :: Routes.((s "metrics" /? nil) @--> metrics)
        :: Current_web.routes engine
      in
      let site =
